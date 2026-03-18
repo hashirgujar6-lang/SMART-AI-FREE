@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal AI Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom Scrollbar for a cleaner look */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+        .typing-indicator span {
+            animation: blink 1.4s infinite both;
+            height: 6px; width: 6px; background-color: #3b82f6; border-radius: 50%; display: inline-block; margin: 0 1px;
+        }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes blink { 0% { opacity: 0.2; } 20% { opacity: 1; } 100% { opacity: 0.2; } }
+    </style>
+</head>
+<body class="bg-white text-gray-800 font-sans h-screen w-screen overflow-hidden flex">
+
+    <aside class="w-64 bg-gray-50 border-r border-gray-200 flex flex-col transition-all duration-300 relative z-20">
+        <div class="p-4 border-b border-gray-200">
+            <button id="newChatBtn" class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-medium transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                New Chat
+            </button>
+        </div>
+        
+        <div class="flex-1 overflow-y-auto p-3 space-y-2" id="chatHistoryList">
+            </div>
+
+        <div class="p-4 border-t border-gray-200">
+            <button id="openSettingsBtn" class="w-full flex items-center gap-3 text-gray-600 hover:text-gray-900 hover:bg-gray-100 p-2 rounded-lg transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                Settings
+            </button>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col relative h-full">
+        <header class="h-14 border-b border-gray-200 flex items-center px-6 bg-white justify-between shrink-0">
+            <h1 class="text-lg font-semibold text-gray-700" id="currentModelDisplay">Universal AI</h1>
+        </header>
+
+        <div id="chatContainer" class="flex-1 overflow-y-auto p-6 space-y-6 pb-32">
+            <div class="text-center text-gray-400 mt-20" id="emptyState">
+                <h2 class="text-2xl font-bold text-gray-300 mb-2">How can I help you today?</h2>
+                <p>Ensure your API key is configured in settings.</p>
+            </div>
+        </div>
+
+        <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white via-white to-transparent pt-6 pb-6 px-6 lg:px-24">
+            <form id="chatForm" class="relative max-w-3xl mx-auto flex items-end border border-gray-300 bg-white rounded-2xl shadow-sm focus-within:ring-1 focus-within:ring-blue-500 overflow-hidden">
+                <textarea id="messageInput" rows="1" class="w-full max-h-48 py-4 pl-4 pr-12 bg-transparent border-none focus:ring-0 resize-none outline-none text-gray-800" placeholder="Message AI..."></textarea>
+                <button type="submit" id="sendBtn" class="absolute right-3 bottom-3 p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19V6m0 0l-7 7m7-7l7 7"></path></svg>
+                </button>
+            </form>
+        </div>
+    </main>
+
+    <div id="settingsModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 transform transition-all">
+            <h2 class="text-xl font-bold mb-4">Settings</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">OpenRouter API Key</label>
+                    <input type="password" id="apiKeyInput" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="sk-or-v1-...">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Model ID</label>
+                    <input type="text" id="modelInput" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="google/gemini-pro">
+                    <p class="text-xs text-gray-500 mt-1">e.g., google/gemini-pro, openai/gpt-4o</p>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-3">
+                <button id="closeSettingsBtn" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
+                <button id="saveSettingsBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State Management
+        let appState = {
+            apiKey: localStorage.getItem('ai_api_key') || '',
+            modelId: localStorage.getItem('ai_model_id') || 'google/gemini-pro',
+            chats: JSON.parse(localStorage.getItem('ai_chats')) || [],
+            currentChatId: null
+        };
+
+        // DOM Elements
+        const DOM = {
+            chatContainer: document.getElementById('chatContainer'),
+            chatForm: document.getElementById('chatForm'),
+            messageInput: document.getElementById('messageInput'),
+            sendBtn: document.getElementById('sendBtn'),
+            chatHistoryList: document.getElementById('chatHistoryList'),
+            newChatBtn: document.getElementById('newChatBtn'),
+            emptyState: document.getElementById('emptyState'),
+            currentModelDisplay: document.getElementById('currentModelDisplay'),
+            
+            // Modal
+            settingsModal: document.getElementById('settingsModal'),
+            openSettingsBtn: document.getElementById('openSettingsBtn'),
+            closeSettingsBtn: document.getElementById('closeSettingsBtn'),
+            saveSettingsBtn: document.getElementById('saveSettingsBtn'),
+            apiKeyInput: document.getElementById('apiKeyInput'),
+            modelInput: document.getElementById('modelInput')
+        };
+
+        // Initialize App
+        function init() {
+            DOM.currentModelDisplay.textContent = appState.modelId;
+            renderSidebar();
+            
+            if (appState.chats.length > 0) {
+                loadChat(appState.chats[0].id);
+            } else {
+                startNewChat();
+            }
+
+            // Auto-resize textarea
+            DOM.messageInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight) + 'px';
+            });
+            
+            // Enter to submit (Shift+Enter for newline)
+            DOM.messageInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    DOM.chatForm.dispatchEvent(new Event('submit'));
+                }
+            });
+        }
+
+        // --- Core Chat Logic ---
+
+        function startNewChat() {
+            appState.currentChatId = Date.now().toString();
+            const newChat = {
+                id: appState.currentChatId,
+                title: "New Conversation",
+                messages: []
+            };
+            appState.chats.unshift(newChat);
+            saveChats();
+            renderSidebar();
+            renderMessages();
+        }
+
+        function loadChat(id) {
+            appState.currentChatId = id;
+            renderSidebar();
+            renderMessages();
+        }
+
+        async function handleMessageSubmit(e) {
+            e.preventDefault();
+            const text = DOM.messageInput.value.trim();
+            
+            if (!text) return;
+            if (!appState.apiKey) {
+                alert("Please set your OpenRouter API Key in settings first.");
+                DOM.settingsModal.classList.replace('hidden', 'flex');
+                return;
+            }
+
+            // UI updates
+            DOM.messageInput.value = '';
+            DOM.messageInput.style.height = 'auto';
+            
+            const currentChat = appState.chats.find(c => c.id === appState.currentChatId);
+            
+            // If first message, set title
+            if (currentChat.messages.length === 0) {
+                currentChat.title = text.slice(0, 30) + (text.length > 30 ? '...' : '');
+                renderSidebar();
+            }
+
+            // Add User Message
+            const userMsg = { role: 'user', content: text };
+            currentChat.messages.push(userMsg);
+            appendMessage(userMsg);
+            saveChats();
+
+            // Fetch AI Response
+            await fetchAIResponse(currentChat);
+        }
+
+        async function fetchAIResponse(chat) {
+            DOM.sendBtn.disabled = true;
+            const loadingId = appendLoading();
+
+            try {
+                // OpenRouter API Call
+                const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${appState.apiKey}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        model: appState.modelId,
+                        messages: chat.messages
+                    })
+                });
+
+                if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+                
+                const data = await response.json();
+                const aiContent = data.choices[0].message.content;
+
+                // Remove loading and append real response
+                document.getElementById(loadingId).remove();
+                
+                const aiMsg = { role: 'assistant', content: aiContent };
+                chat.messages.push(aiMsg);
+                appendMessage(aiMsg);
+                saveChats();
+
+            } catch (error) {
+                document.getElementById(loadingId).remove();
+                const errorMsg = { role: 'assistant', content: `**Error:** ${error.message}. Please check your API key and connection.` };
+                appendMessage(errorMsg, true);
+            } finally {
+                DOM.sendBtn.disabled = false;
+                DOM.messageInput.focus();
+            }
+        }
+
+        // --- UI Rendering ---
+
+        function renderMessages() {
+            DOM.chatContainer.innerHTML = '';
+            const chat = appState.chats.find(c => c.id === appState.currentChatId);
+            
+            if (!chat || chat.messages.length === 0) {
+                DOM.chatContainer.appendChild(DOM.emptyState);
+                DOM.emptyState.style.display = 'block';
+                return;
+            }
+
+            chat.messages.forEach(msg => appendMessage(msg));
+            scrollToBottom();
+        }
+
+        function appendMessage(msg, isError = false) {
+            if (DOM.emptyState.parentNode) DOM.emptyState.style.display = 'none';
+
+            const wrapper = document.createElement('div');
+            wrapper.className = `flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`;
+
+            const bubble = document.createElement('div');
+            bubble.className = `max-w-[80%] rounded-2xl px-5 py-3 whitespace-pre-wrap leading-relaxed ${
+                msg.role === 'user' 
+                ? 'bg-blue-600 text-white rounded-br-none' 
+                : isError 
+                    ? 'bg-red-50 text-red-600 border border-red-200 rounded-bl-none'
+                    : 'bg-gray-100 text-gray-800 rounded-bl-none'
+            }`;
+            
+            // Basic markdown handling for codeblocks and bold
+            let formattedContent = msg.content
+                .replace(/```([\s\S]*?)```/g, '<pre class="bg-gray-800 text-gray-100 p-3 rounded mt-2 overflow-x-auto text-sm"><code>$1</code></pre>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+            bubble.innerHTML = formattedContent;
+            wrapper.appendChild(bubble);
+            DOM.chatContainer.appendChild(wrapper);
+            scrollToBottom();
+        }
+
+        function appendLoading() {
+            const id = 'loading-' + Date.now();
+            const wrapper = document.createElement('div');
+            wrapper.id = id;
+            wrapper.className = `flex w-full justify-start`;
+            wrapper.innerHTML = `
+                <div class="max-w-[80%] rounded-2xl px-5 py-4 bg-gray-100 text-gray-800 rounded-bl-none typing-indicator">
+                    <span></span><span></span><span></span>
+                </div>
+            `;
+            DOM.chatContainer.appendChild(wrapper);
+            scrollToBottom();
+            return id;
+        }
+
+        function renderSidebar() {
+            DOM.chatHistoryList.innerHTML = '';
+            appState.chats.forEach(chat => {
+                const btn = document.createElement('button');
+                const isActive = chat.id === appState.currentChatId;
+                btn.className = `w-full text-left truncate px-3 py-2 rounded-lg text-sm transition-colors ${
+                    isActive ? 'bg-gray-200 text-gray-900 font-medium' : 'text-gray-600 hover:bg-gray-200'
+                }`;
+                btn.textContent = chat.title;
+                btn.onclick = () => loadChat(chat.id);
+                DOM.chatHistoryList.appendChild(btn);
+            });
+        }
+
+        // --- Utilities ---
+
+        function saveChats() {
+            localStorage.setItem('ai_chats', JSON.stringify(appState.chats));
+        }
+
+        function scrollToBottom() {
+            DOM.chatContainer.scrollTop = DOM.chatContainer.scrollHeight;
+        }
+
+        // --- Event Listeners ---
+
+        DOM.chatForm.addEventListener('submit', handleMessageSubmit);
+        DOM.newChatBtn.addEventListener('click', startNewChat);
+
+        // Settings Modal Logic
+        DOM.openSettingsBtn.addEventListener('click', () => {
+            DOM.apiKeyInput.value = appState.apiKey;
+            DOM.modelInput.value = appState.modelId;
+            DOM.settingsModal.classList.replace('hidden', 'flex');
+        });
+
+        DOM.closeSettingsBtn.addEventListener('click', () => {
+            DOM.settingsModal.classList.replace('flex', 'hidden');
+        });
+
+        DOM.saveSettingsBtn.addEventListener('click', () => {
+            appState.apiKey = DOM.apiKeyInput.value.trim();
+            appState.modelId = DOM.modelInput.value.trim() || 'google/gemini-pro';
+            
+            localStorage.setItem('ai_api_key', appState.apiKey);
+            localStorage.setItem('ai_model_id', appState.modelId);
+            
+            DOM.currentModelDisplay.textContent = appState.modelId;
+            DOM.settingsModal.classList.replace('flex', 'hidden');
+        });
+
+        // Start
+        init();
+    </script>
+</body>
+                  </html>
